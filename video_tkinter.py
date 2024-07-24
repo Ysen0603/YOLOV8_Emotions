@@ -78,24 +78,6 @@ def toggle_webcam():
         is_paused = False
         update_frame()  # Start updating frames immediately
 
-def play_pause():
-    global is_paused
-    is_paused = not is_paused
-    if not is_paused:
-        update_frame()
-
-def forward():
-    if cap is not None and not is_webcam:
-        current_pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
-        cap.set(cv2.CAP_PROP_POS_FRAMES, current_pos + 30)  # Forward 30 frames
-        update_frame()
-
-def backward():
-    if cap is not None and not is_webcam:
-        current_pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
-        cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, current_pos - 30))  # Backward 30 frames
-        update_frame()
-
 def capture_screenshot():
     if 'frame' in globals():
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -113,15 +95,6 @@ select_button.pack(side=tk.LEFT, padx=5)
 
 webcam_button = ttk.Button(control_frame, text="Basculer Webcam", command=toggle_webcam, style='TButton')
 webcam_button.pack(side=tk.LEFT, padx=5)
-
-play_pause_button = ttk.Button(control_frame, text="Lecture/Pause", command=play_pause, style='TButton')
-play_pause_button.pack(side=tk.LEFT, padx=5)
-
-forward_button = ttk.Button(control_frame, text="Avancer", command=forward, style='TButton')
-forward_button.pack(side=tk.LEFT, padx=5)
-
-backward_button = ttk.Button(control_frame, text="Reculer", command=backward, style='TButton')
-backward_button.pack(side=tk.LEFT, padx=5)
 
 screenshot_button = ttk.Button(control_frame, text="Capture d'écran", command=capture_screenshot, style='TButton')
 screenshot_button.pack(side=tk.LEFT, padx=5)
