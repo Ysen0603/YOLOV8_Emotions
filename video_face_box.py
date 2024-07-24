@@ -46,8 +46,10 @@ while cap.isOpened():
         # Predict class of object in face region using YOLOv5
         results = model(face_img)
         names_dict = results[0].names
-        probs = results[0].probs.tolist()
-        name_classes = names_dict[np.argmax(probs)]
+        
+        # Use top1 index to get the most likely class
+        top1_index = results[0].probs.top1
+        name_classes = names_dict[top1_index]
 
         # Draw rectangle around face and display class name
         cv2.rectangle(frame, (x, y), (x+w, y+h), (50, 50, 50), 2)
