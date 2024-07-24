@@ -24,6 +24,12 @@ recommendations = {
     'neutral': 'Faire une activite relaxante comme lire ou ecouter de la musique',
 }
 
+# Global variables
+cap = None
+is_paused = False
+is_webcam = False
+frame = None
+
 # Create Tkinter window
 root = tk.Tk()
 root.title("Détection d'émotions")
@@ -49,11 +55,6 @@ rec_label.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(0, 10))
 control_frame = tk.Frame(root, bg='#F0F0F0')
 control_frame.pack(fill=tk.X, padx=10, pady=10)
 
-# Global variables
-cap = None
-is_paused = False
-is_webcam = False
-
 def select_video():
     global cap, is_webcam, is_paused
     file_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4 *.avi *.mov")])
@@ -63,6 +64,9 @@ def select_video():
         cap = cv2.VideoCapture(file_path)
         is_webcam = False
         is_paused = False
+        if not cap.isOpened():
+            print("Erreur : Impossible d'ouvrir la vidéo.")
+            return
         update_frame()  # Start updating frames immediately
 
 def toggle_webcam():
@@ -71,19 +75,74 @@ def toggle_webcam():
         cap.release()
     if is_webcam:
         is_webcam = False
-        select_video()
+        cap = None
     else:
         cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            print("Erreur : Impossible d'accéder à la webcam.")
+            return
         is_webcam = True
         is_paused = False
-        update_frame()  # Start updating frames immediately
+    update_frame()  # Start updating frames immediately
 
 def capture_screenshot():
-    if 'frame' in globals():
+    global frame
+    if frame is not None:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"screenshot_{timestamp}.png"
         cv2.imwrite(filename, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
         print(f"Screenshot saved as {filename}")
+
+def toggle_pause():
+    global is_paused
+    is_paused = not is_paused
+
+def update_frame():
+    global frame, cap, is_paused, is_webcam
+    if cap is None or is_paused:
+        root.after(30, update_frame)
+        return
+
+    ret, frame = cap.read()
+    if not ret:
+        if is_webcam:
+            print("Erreur : Impossible de lire le flux de la webcam.")
+            cap.release()
+            cap = None
+            is_webcam = False
+        else:
+            print("Fin de la vidéo.")
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Restart the video
+        root.after(30, update_frame)
+        return
+    
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+
+    for (x, y, w, h) in faces:
+        face_img = frame[y:y+h, x:x+w]
+        results = model(face_img)
+        names_dict = results[0].names
+        
+        top1_index = results[0].probs.top1
+        name_classes = names_dict[top1_index]
+
+        class_label.config(text=name_classes)
+
+        if name_classes in recommendations:
+            rec_label.config(text=recommendations[name_classes])
+
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+        cv2.putText(frame, name_classes, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame_resized = cv2.resize(frame_rgb, (540, 340))
+
+    photo = ImageTk.PhotoImage(image=Image.fromarray(frame_resized))
+    canvas.create_image(0, 0, image=photo, anchor=tk.NW)
+    canvas.image = photo
+
+    root.after(30, update_frame)
 
 # Create styled buttons
 style = ttk.Style()
@@ -99,51 +158,11 @@ webcam_button.pack(side=tk.LEFT, padx=5)
 screenshot_button = ttk.Button(control_frame, text="Capture d'écran", command=capture_screenshot, style='TButton')
 screenshot_button.pack(side=tk.LEFT, padx=5)
 
+pause_button = ttk.Button(control_frame, text="Pause/Reprendre", command=toggle_pause, style='TButton')
+pause_button.pack(side=tk.LEFT, padx=5)
+
 close_button = ttk.Button(control_frame, text="Fermer", command=root.destroy, style='TButton')
 close_button.pack(side=tk.RIGHT, padx=5)
-
-def update_frame():
-    global frame
-    if cap is None:
-        root.after(30, update_frame)
-        return
-
-    if not is_paused:
-        ret, frame = cap.read()
-        if not ret:
-            if is_webcam:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                ret, frame = cap.read()
-            else:
-                return
-        
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
-
-        for (x, y, w, h) in faces:
-            face_img = frame[y:y+h, x:x+w]
-            results = model(face_img)
-            names_dict = results[0].names
-            
-            top1_index = results[0].probs.top1
-            name_classes = names_dict[top1_index]
-
-            class_label.config(text=name_classes)
-
-            if name_classes in recommendations:
-                rec_label.config(text=recommendations[name_classes])
-
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-            cv2.putText(frame, name_classes, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
-
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame_resized = cv2.resize(frame_rgb, (540, 340))
-
-        photo = ImageTk.PhotoImage(image=Image.fromarray(frame_resized))
-        canvas.create_image(0, 0, image=photo, anchor=tk.NW)
-        canvas.image = photo
-
-    root.after(30, update_frame)
 
 # Run Tkinter main loop
 root.mainloop()
