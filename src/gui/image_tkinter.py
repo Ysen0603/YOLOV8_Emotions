@@ -6,12 +6,12 @@ from PIL import ImageTk, Image
 from tkinter import filedialog
 
 # Load YOLOv5 model
-model = YOLO('./runs/classify/train/weights/best.pt')
+model = YOLO('assets/models/emotion_model.pt')
 
 # Load Haar Cascade face detector
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+face_cascade = cv2.CascadeClassifier('assets/models/haarcascade_frontalface_default.xml')
 # Load image
-img_path = 'mans happy face_24.jpeg'
+img_path = 'assets/images/mans happy face_24.jpeg'
 img = cv2.imread(img_path)
 
 # Convert image to grayscale
